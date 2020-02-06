@@ -1,34 +1,33 @@
 import sys
 dict_a = {}
 
-def find_sol(pivot_b, pizzas, W):
+def find_sol(pivot_b, pizzas, W, offset=0):
     count = 0
     p_count = 0
 
-    for i in range(len(pizzas) - 1, pivot_b, -1):
+    for i in range(len(pizzas) - 1 , pivot_b, -1):
 
         if count + pizzas[i] > W:
             break
         count += pizzas[i]
         p_count += 1
         
-    best = (count, p_count)
 
     pivot_a = 0 #index du premier qui depasse
+    best = (count, p_count, pivot_a)
     while pivot_a <= pivot_b - 1 and pivot_a < len(pizzas) and count + pizzas[pivot_a] < W:
         pivot_a += 1
     while pivot_a >= 0:
         new_sol = find_sol_smaller(pivot_a, pizzas, W, count, p_count)
         best = new_sol if best[0] <= new_sol[0] else best
         pivot_a -= 1
-
     return best
     # return find_sol_smaller(pivot_a, pizzas, W, count, p_count)
 
 def find_sol_smaller(pivot_a, pizzas, W, bigger_count, bigger_p_count):
     if pivot_a in dict_a:
         count, p_count = dict_a[pivot_a]
-        return (count + bigger_count, p_count + bigger_p_count)
+        return (count + bigger_count, p_count + bigger_p_count, pivot_a)
     count = 0
     p_count = 0
     for i in range(pivot_a, 1, -1):
@@ -37,19 +36,39 @@ def find_sol_smaller(pivot_a, pizzas, W, bigger_count, bigger_p_count):
         count += pizzas[i]
         p_count += 1
     dict_a[pivot_a] = (count, p_count)
-    return (count + bigger_count, p_count + bigger_p_count)
+    return (count + bigger_count, p_count + bigger_p_count, pivot_a)
 
 def compute_sol(pivot_b, pizzas, W):
-    best = (0, 0)
+    best = (0, 0, 0)
     while pivot_b < len(pizzas):
-        if pivot_b % 100 == 0:
+        if pivot_b % 128 == 0:
             print(f"progress: {pivot_b}/{len(pizzas)}")
         new_sol = find_sol( pivot_b, pizzas, W)
-        #print(new_sol)
         best = new_sol if best[0] <= new_sol[0] else best
         pivot_b += 1
-        #print(f"pivot_b={pivot_b}")
     return best
+
+def rec_sol(max_W, pizzas):
+    best = (0, 0, 0)
+    max_depth = 10
+    def helper(W, subarray, depth, prev_count, best):
+        if depth == max_depth:
+            return best
+        pivot_b = len(subarray) - 1
+        count = 0
+        while count + subarray[pivot_b] < W:
+            count = count + subarray[pivot_b]
+            pivot_b -= 1
+        print(pivot_b)
+        candidate = compute_sol(pivot_b, pizzas, W)
+        best = candidate if best[0] < candidate[0] else best
+        print(best)
+        print(candidate)
+        helper(W - candidate[0], subarray[::candidate[2]], depth + 1, candidate[0], best)
+    return helper(max_W, pizzas, 0, 0, best)
+    
+
+        
 
 if __name__ == "__main__":
 
@@ -70,66 +89,5 @@ if __name__ == "__main__":
     pivot_b = i
 
     res = compute_sol(pivot_b, pizzas, slices)
+    #res = rec_sol(slices, pizzas)
     print(res)
-    # pivot = j
-    # best = (i, bigger_count)
-    # while pivot >= 0:
-    #     pivot = pivot - 1
-    #     print(f"trying pivot={pivot}")
-    #     k = pivot
-    #     count = bigger_count
-
-    #     while count + pizzas[k] < slices:
-    #         count = count + pizzas[k]
-    #         k = k - 1
-    #     print(f"found sol={count}")
-    #     if count > best[1]:
-    #         best = (i + (pivot - k), count)
-    # print(best)
-
-
-# def printknapSack(W, wt, val, n):
-#     K = [[0 for w in range(W + 1)]
-#          for i in range(n + 1)]
-
-#     # Build table K[][] in bottom
-#     # up manner
-#     for i in range(n + 1):
-#         for w in range(W + 1):
-#             if i == 0 or w == 0:
-#                 K[i][w] = 0
-#             elif wt[i - 1] <= w:
-#                 K[i][w] = max(val[i - 1]
-#                               + K[i - 1][w - wt[i - 1]],
-#                               K[i - 1][w])
-#             else:
-#                 K[i][w] = K[i - 1][w]
-
-#     # stores the result of Knapsack
-#     res = K[n][W]
-
-#     w = W
-#     for i in range(n, 0, -1):
-#         if res <= 0:
-#             break
-#         # either the result comes from the
-#         # top (K[i-1][w]) or from (val[i-1]
-#         # + K[i-1] [w-wt[i-1]]) as in Knapsack
-#         # table. If it comes from the latter
-#         # one/ it means the item is included.
-#         if res == K[i - 1][w]:
-#             continue
-#         else:
-
-#             # This item is included.
-#             print(wt[i - 1])
-
-#             # Since this weight is included
-#             # its value is deducted
-#             res = res - val[i - 1]
-#             w = w - wt[i - 1]
-
-# wt = [1 for i in range(len(pizzas))]
-# n = len(pizzas)
-
-# printknapSack(slices, wt, pizzas, n)
