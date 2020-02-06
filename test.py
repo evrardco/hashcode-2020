@@ -1,5 +1,6 @@
 import sys
 dict_a = {}
+
 def find_sol(pivot_b, pizzas, W):
     count = 0
     p_count = 0
@@ -41,8 +42,8 @@ def find_sol_smaller(pivot_a, pizzas, W, bigger_count, bigger_p_count):
 def compute_sol(pivot_b, pizzas, W):
     best = (0, 0)
     while pivot_b < len(pizzas):
-        if prog
-        #print(f"progress: {pivot_b}/{len(pizzas)}")
+        if pivot_b % 100 == 0:
+            print(f"progress: {pivot_b}/{len(pizzas)}")
         new_sol = find_sol( pivot_b, pizzas, W)
         #print(new_sol)
         best = new_sol if best[0] <= new_sol[0] else best
