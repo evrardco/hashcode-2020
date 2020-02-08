@@ -72,8 +72,8 @@ class State:
     def remove_pizza(self, i):
 
         s = State(self.count - self.pizzas[i], self.used, self.unused, self.pizzas, self.goal)
-        s.swapped_in = array('I', self.swapped_in)
-        s.swapped_out = array('I', self.swapped_out)
+        s.swapped_in = self.swapped_in.copy()
+        s.swapped_out = self.swapped_out.copy()
         if i in s.swapped_in:
             s.swapped_in.remove(i)
         else:
@@ -86,14 +86,18 @@ class State:
 
     def add_pizza(self, i):
         s = State(self.count + self.pizzas[i], self.used, self.unused, self.pizzas, self.goal)
-        s.swapped_in = self.swapped_in.__copy__()
-        s.swapped_out = self.swapped_out.__copy__()
+        s.swapped_in = self.swapped_in.copy()
+        s.swapped_out = self.swapped_out.copy()
         if i in s.swapped_out:
             s.swapped_out.remove(i)
         else:
             s.swapped_in.append(i)
         return s
          
+    def get_sol(self):
+        swapped_out = self.swapped_out
+        pizza_order = list(filter(lambda i: True if i not in swapped_out else False, self.used)) + self.swapped_in
+        return (self.count, sorted(pizza_order))
 
     def __hash__(self):
         global DICT_ACCESSES
@@ -111,13 +115,7 @@ def best_first_graph_search(root, objective, f, max_depth=1000):
     best = root.state
     fringe = PriorityQueue()
     fringe.put((f(root), root))
-
-
     explored_set = {}
-    for i in range(len(pizzas)):
-        explored_set[i] = False
-    for i in range(len(pizzas)):
-        del explored_set[i]
     iterations = 0
     while not fringe.empty():
         iterations += 1
@@ -131,12 +129,12 @@ def best_first_graph_search(root, objective, f, max_depth=1000):
         if n.state in explored_set:
             continue
         if n.best == objective:
-            return n
+            return n.state
         best = n.state if n.state.count > best.count else best
         if n.depth < max_depth:
             for node in n.expand():
                 if node.state.count == objective:
-                    return node
+                    return node.state
                 fringe.put((f(node), node))
         
         explored_set[n.state] = True
@@ -164,28 +162,22 @@ if __name__ == "__main__":
     l = []
     count = 0
     def evaluate(state):
-        
-        filtered = filter(lambda el: el not in state.swapped_in, state.unused)
-        s = sum(filtered) + sum(state.unused)
+    
         dist = (slices - state.count)
-        return 0 if dist == 0 else dist + s
+        return dist
 
     def fun(node):
         return node.depth + evaluate(node.state)
 
     naive_sol = naive_solver(slices, pizzas)
+
     count = naive_sol[0] 
     used = sorted(naive_sol[1])
     unused = sorted(naive_sol[2])
     root = Node(State(count, used, unused, pizzas, slices), 0, naive_sol[0])
 
-    # count = 0
-    # used = [0]
-    # unused = [i for i in range(1, len(pizzas))]
-    # root = Node(State(count, used, unused, pizzas, slices), 0, naive_sol[0])
 
-
-    print(l)
-    
-    print(best_first_graph_search(root, slices, fun, max_depth=15).state.count)
+    res = best_first_graph_search(root, slices, fun, max_depth=15).get_sol()
+    print(f"Checking solution... {'Ok.' if len(res[1]) == len(set(res[1])) else 'Invalid !'}")
+    print(res)
     #print(res.count)
