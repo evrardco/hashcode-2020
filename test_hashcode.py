@@ -3,9 +3,11 @@ tot_book_types = None
 tot_libraries = None
 days_left = None
 book_scores = None
-library_tuples = []
+library_tuples = [] 
 # format for library_tuples:
 # ([number of books in library, signup days, shipping capacity], [books in library])
+# format for the output tuple
+# (total libraries used, [(library id, number of books to be scanend, [array of the books id])])
 
 
 def parse(path):
@@ -34,6 +36,15 @@ def main():
     print(days_left)
     print(book_scores)
 
+    # preprocess
+    library_tuples.sort()
+
+def print_sol(sol):
+    print(sol[0])
+    for library_id, num_books, book_array in sol[1]:
+        print(f"{library_id} {num_books}")
+        for book in book_array:
+            print(book, end=" ")
 
 if __name__ == "__main__":
     main()
