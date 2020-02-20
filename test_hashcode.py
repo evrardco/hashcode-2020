@@ -48,10 +48,9 @@ def main():
     #print_sol(naive_colin())
 
 def naive_colin():
-    sorted_libs = sorted(lib_ids, key=lambda i: library_tuples[i][0][1])
+    sorted_libs = sorted(lib_ids, key=lambda i: -get_lib_score(i))
     library_sols = []
     for i in sorted_libs:
-        print(library_tuples[i])
         meta, book_array = library_tuples[i]
         sorted_books = sortBooks(i)
         library_sols.append((i, len(sorted_books), book_array))
@@ -79,12 +78,20 @@ def naive_maxime(libraries, max_days):
         
         # 
         
+def get_lib_score(lib_id):
+    meta, book_assortment = library_tuples[lib_id]
+    my_sum = 0
+    for i in book_assortment:
+        my_sum += book_scores[i]
+    return my_sum/meta[1]
+
     
 def sort_libs(libraries):
     return sorted(library_tuples, key=lambda t: t[0][1])
 
 def sortBooks(lib):
     books = (library_tuples[lib])[1]
+
     return sorted(books,reverse=True,key=get_score)
     
 
@@ -94,15 +101,11 @@ def get_score(elem):
 def print_sol(sol, elem):
     nf = elem[:-4] + "_output.txt"
     with open(nf,"w") as fl:
-        print(sol[0])
         fl.write(str(sol[0])+"\n")
         for library_id, num_books, book_array in sol[1]:
-            print(f"{library_id} {num_books}")
             fl.write(f"{library_id} {num_books}\n")
             for book in book_array:
-                print(book, end=" ")
                 fl.write(str(book)+" ")
-            print("")
             fl.write("\n")
 
 if __name__ == "__main__":
