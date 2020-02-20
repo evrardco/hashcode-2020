@@ -2,78 +2,11 @@ import sys
 from collections import deque
 import itertools as iter
 import functools 
-dict_a = {}
-def find_sol(pivot_b, pizzas, W, offset=0):
-    count = 0
-    p_count = 0
-
-    for i in range(len(pizzas) - 1, pivot_b, -1):
-
-        if count + pizzas[i] > W:
-            break
-        count += pizzas[i]
-        p_count += 1
-
-    pivot_a = 0  # index du premier qui depasse
-    best = (count, p_count, pivot_a)
-    while pivot_a <= pivot_b - 1 and pivot_a < len(pizzas) and count + pizzas[pivot_a] < W:
-        pivot_a += 1
-    while pivot_a >= 0:
-        new_sol = find_sol_smaller(pivot_a, pizzas, W, count, p_count)
-        best = new_sol if best[0] <= new_sol[0] else best
-        pivot_a -= 1
-    return best
-    # return find_sol_smaller(pivot_a, pizzas, W, count, p_count)
-
-
-def find_sol_smaller(pivot_a, pizzas, W, bigger_count, bigger_p_count):
-    if pivot_a in dict_a:
-        count, p_count = dict_a[pivot_a]
-        return (count + bigger_count, p_count + bigger_p_count, pivot_a)
-    count = 0
-    p_count = 0
-    for i in range(pivot_a, 1, -1):
-        if bigger_count + count + pizzas[i] > W:
-            break
-        count += pizzas[i]
-        p_count += 1
-    dict_a[pivot_a] = (count, p_count)
-    return (count + bigger_count, p_count + bigger_p_count, pivot_a)
-
-
-def compute_sol(pivot_b, pizzas, W):
-    best = (0, 0, 0)
-    while pivot_b < len(pizzas):
-        if pivot_b % 128 == 0:
-            print(f"progress: {pivot_b}/{len(pizzas)}")
-        new_sol = find_sol(pivot_b, pizzas, W)
-        best = new_sol if best[0] <= new_sol[0] else best
-        pivot_b += 1
-    return best
-
-
-def rec_sol(max_W, pizzas):
-    best = (0, 0, 0)
-    max_depth = 10
-
-    def helper(W, subarray, depth, prev_count, best):
-        if depth == max_depth:
-            return best
-        pivot_b = len(subarray) - 1
-        count = 0
-        while count + subarray[pivot_b] < W:
-            count = count + subarray[pivot_b]
-            pivot_b -= 1
-        print(pivot_b)
-        candidate = compute_sol(pivot_b, pizzas, W)
-        best = candidate if best[0] < candidate[0] else best
-        print(best)
-        print(candidate)
-        helper(W - candidate[0], subarray[::candidate[2]],
-               depth + 1, candidate[0], best)
-    return helper(max_W, pizzas, 0, 0, best)
-
-
+import math
+from queue import PriorityQueue
+from array import *
+DICT_ACCESSES = 0
+COLLS = 0
 def naive_solver(slices, pizzas):
     used, unused = [], []
     count = 0
@@ -84,90 +17,128 @@ def naive_solver(slices, pizzas):
             break
         count = count + pizzas[i]
         pivot = i
-        used.append(pizzas[i])
+        used.append(i)
     
     for i in range(0, pivot):
         if count + pizzas[i] > slices:
             break
         count = count + pizzas[i]
-        used.append(pizzas[i])
+        used.append(i)
     
     for i in range(len(pizzas)):
         if i not in used:
-            unused.append(pizzas[i])
+            unused.append(i)
     
     return (count, used, unused)
     
 class Node:
     def __init__(self, state, depth, best):
-        self.depth = 0
+        self.depth = depth
         self.state = state
         self.best = best
+        self.pizzas = pizzas
 
     def expand(self):
         for next in self.state.successors():
             yield Node(next, self.depth + 1, max(next.count, self.best))
+    
+    def __lt__(self, other):
+        return self.state.count < other.state.count
 
 
 class State:
 
-    def __init__(self, count, used, unused):
+    def __init__(self, count, used, unused, pizzas, goal):
         self.used = used
         self.unused = unused
         self.count = count
-
+        self.swapped_in = []
+        self.swapped_out = []
+        self.pizzas = pizzas
+        self.goal = goal
+        self.biggest_unused = len(unused) - 1
+        
     def successors(self):
+        for i in range(len(pizzas) - 1, 0, -1):
+            if self.can_remove(i):
+                yield self.remove_pizza(i)
+            if self.can_add(i):
+                yield self.add_pizza(i)    
 
-        for i in range(len(self.used)):
-            for j in range(len(self.unused)):
-                yield self.swap(i, j)
+    def can_remove(self, i):
 
-    def swap(self, i, j):
-        s = State(self.count, [x for x in self.used], [x for x in self.unused])
-        s.count -= s.used[i]
-        s.unused.append(s.used[i])
-        del(s.used[i])
+        return ((i in self.used and i not in self.swapped_out) or i in self.swapped_in) and self.count - self.pizzas[i] > 0
 
-        s.count += s.unused[j]
-        s.used.append(s.unused[j])
-        del(s.unused[j])
+    def remove_pizza(self, i):
 
+        s = State(self.count - self.pizzas[i], self.used, self.unused, self.pizzas, self.goal)
+        s.swapped_in = self.swapped_in.copy()
+        s.swapped_out = self.swapped_out.copy()
+        if i in s.swapped_in:
+            s.swapped_in.remove(i)
+        else:
+            s.swapped_out.append(i)
         return s
+    
+    def can_add(self, i):
+
+        return ((i in self.unused and i not in self.swapped_in) or i in self.swapped_out) and self.count + self.pizzas[i] <= self.goal
+
+    def add_pizza(self, i):
+        s = State(self.count + self.pizzas[i], self.used, self.unused, self.pizzas, self.goal)
+        s.swapped_in = self.swapped_in.copy()
+        s.swapped_out = self.swapped_out.copy()
+        if i in s.swapped_out:
+            s.swapped_out.remove(i)
+        else:
+            s.swapped_in.append(i)
+        return s
+         
+    def get_sol(self):
+        swapped_out = self.swapped_out
+        pizza_order = list(filter(lambda i: True if i not in swapped_out else False, self.used)) + self.swapped_in
+        return (self.count, sorted(pizza_order))
+
     def __hash__(self):
-        return hash(functools.reduce(lambda x, y: x + y, self.used))
+        global DICT_ACCESSES
+        DICT_ACCESSES = DICT_ACCESSES + 1
+        return hash(self.count)
     
     def __eq__(self, other):
-        s1 = functools.reduce(lambda x, y: x + y, self.used)
-        s1 += functools.reduce(lambda x, y: x + y, self.unused)
-        s2 = functools.reduce(lambda x, y: x + y, other.used)
-        s2 += functools.reduce(lambda x, y: x + y, other.unused)
-        return s1 == s2
+        global COLLS
+        COLLS += 1
+        return set(self.swapped_in) == set(other.swapped_in) and set(self.swapped_out) == set(other.swapped_out)
 
 
-def bfs(root, objective, max_depth=1000):
-
-    best = root
-    fringe = deque([root])
-
-    depth = 0
-
+def best_first_graph_search(root, objective, f, max_depth=1000):
+    global COLLS, DICT_ACCESSES
+    best = root.state
+    fringe = PriorityQueue()
+    fringe.put((f(root), root))
     explored_set = {}
-    while fringe:
-        n = fringe.pop()
-        if n in explored_set:
+    iterations = 0
+    while not fringe.empty():
+        iterations += 1
+        h_val, n = fringe.get(0)
+        if iterations % (100) == 0:
+            print( f"best is {best.count}")
+            print(f"current is {n.state.count}")
+            print(f"Collision rate: {COLLS/DICT_ACCESSES}")
+            DICT_ACCESSES = 0
+            COLLS = 0
+        if n.state in explored_set:
             continue
         if n.best == objective:
-            return n
-        best = n if n.best > best.best else best
-        print(n.depth)
+            return n.state
+        best = n.state if n.state.count > best.count else best
         if n.depth < max_depth:
-            fringe.extend(n.expand())
-            depth = depth + 1
-        else:
-            explored_set[n] = n.best
-            print("added to explored_set")
-    return best
+            for node in n.expand():
+                if node.state.count == objective:
+                    return node.state
+                fringe.put((f(node), node))
         
+        explored_set[n.state] = True
+    return best
 
 
 if __name__ == "__main__":
@@ -178,7 +149,7 @@ if __name__ == "__main__":
     with open(path) as f:
         slices = int(f.readline().split(' ')[0])
         pizzas = f.readline().rstrip().split(' ')
-    pizzas = [int(p) for p in pizzas]
+    pizzas = array('I', [int(p) for p in pizzas])
     pizzas_reversed = sorted(pizzas, key=lambda x: -x)
     bigger_count = 0  # slices prises aux pizzas les plus grandes
     i = 0
@@ -188,8 +159,25 @@ if __name__ == "__main__":
 
     pivot_b = i
 
-    # res = compute_sol(pivot_b, pizzas, slices)
-    # #res = rec_sol(slices, pizzas)
+    l = []
+    count = 0
+    def evaluate(state):
+    
+        dist = (slices - state.count)
+        return dist
+
+    def fun(node):
+        return node.depth + evaluate(node.state)
+
     naive_sol = naive_solver(slices, pizzas)
-    res = bfs(Node(State(*naive_sol), 0, naive_sol[0]), slices)
-    print(res.count)
+
+    count = naive_sol[0] 
+    used = sorted(naive_sol[1])
+    unused = sorted(naive_sol[2])
+    root = Node(State(count, used, unused, pizzas, slices), 0, naive_sol[0])
+
+
+    res = best_first_graph_search(root, slices, fun, max_depth=15).get_sol()
+    print(f"Checking solution... {'Ok.' if len(res[1]) == len(set(res[1])) else 'Invalid !'}")
+    print(res)
+    #print(res.count)
