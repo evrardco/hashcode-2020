@@ -22,6 +22,7 @@ def parse(path):
     library_tuples = [] 
     with open(path) as file:
         lines = file.readlines()
+        lines = list(filter(lambda s: len(s.strip("\n")) > 0, lines))
         metadata = lines[0].split(" ")
         tot_book_types = int(metadata[0])
         tot_libraries = int(metadata[1])
